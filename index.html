@@ -150,11 +150,29 @@
     </div>
 
     <h2>Current Bookings</h2>
-    <div id="bookingsTable">
-        <iframe src="https://docs.google.com/spreadsheets/d/1mTz7z3GWlRPHuURRcBkN6tJbHqHkrROAYtQM2OhBgfA/edit?usp=sharing" style="width:100%; height:500px; border:none;"></iframe>
-    </div>
+    <div id="bookingsTable"></div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
     <script>
+        // Initialize Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyBhYpwP6Cd4K9GHqGC7TqXwXvXNv_lT8Ew",
+            authDomain: "badminton-booking-2e1d7.firebaseapp.com",
+            projectId: "badminton-booking-2e1d7",
+            storageBucket: "badminton-booking-2e1d7.appspot.com",
+            messagingSenderId: "724887236805",
+            appId: "1:724887236805:web:d9d9d9d9d9d9d9d9d9d9",
+            databaseURL: "https://badminton-booking-2e1d7-default-rtdb.asia-southeast1.firebasedatabase.app"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+
+        let isAdmin = false;
+        const ADMIN_PASSWORD = 'kojja@123';
+
         // Set minimum date as today
         const dateInput = document.getElementById('date');
         const today = new Date().toISOString().split('T')[0];
@@ -165,55 +183,123 @@
         document.getElementById('bookingForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
-            // Get form data
-            const formData = {
+            const booking = {
                 name: document.getElementById('name').value,
                 phone: document.getElementById('phone').value,
                 date: document.getElementById('date').value,
                 time: document.getElementById('time').value,
                 duration: document.getElementById('duration').value,
                 amount: 50,
-                status: 'pending'
+                status: 'pending',
+                createdAt: new Date().toISOString()
             };
 
-            // Send to Google Sheet
-            fetch('https://script.google.com/macros/s/AKfycbxgQNpKUr6WXTz2G8kHABt8B2B8XB8B2B8XB8B2B8XB8/exec', {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(formData)
-            })
-            .then(() => {
-                alert('Booking created! Please make the payment.');
-                this.reset();
-                dateInput.value = today;
-                // Refresh the iframe to show new booking
-                document.querySelector('iframe').src = document.querySelector('iframe').src;
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Error saving booking. Please try again.');
-            });
+            // Save to Firebase
+            const newBookingRef = database.ref('bookings').push();
+            newBookingRef.set(booking)
+                .then(() => {
+                    alert('Booking created! Please make the payment.');
+                    this.reset();
+                    dateInput.value = today;
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error saving booking. Please try again.');
+                });
         });
 
         // Admin login
         function loginAdmin() {
             const password = document.getElementById('adminPassword').value;
-            if (password === 'kojja@123') {
+            if (password === ADMIN_PASSWORD) {
+                isAdmin = true;
                 alert('Admin login successful');
-                window.open('https://docs.google.com/spreadsheets/d/1mTz7z3GWlRPHuURRcBkN6tJbHqHkrROAYtQM2OhBgfA/edit', '_blank');
                 document.getElementById('adminPassword').value = '';
+                loadBookings();
             } else {
                 alert('Incorrect password');
             }
         }
 
-        // Refresh iframe every 30 seconds
-        setInterval(() => {
-            document.querySelector('iframe').src = document.querySelector('iframe').src;
-        }, 30000);
+        // Handle booking actions
+        function approveBooking(bookingId) {
+            if (!isAdmin) {
+                alert('Please login as admin first');
+                return;
+            }
+            database.ref('bookings/' + bookingId).update({
+                status: 'approved'
+            });
+        }
+
+        function rejectBooking(bookingId) {
+            if (!isAdmin) {
+                alert('Please login as admin first');
+                return;
+            }
+            database.ref('bookings/' + bookingId).update({
+                status: 'rejected'
+            });
+        }
+
+        // Load and display bookings
+        function loadBookings() {
+            const table = document.getElementById('bookingsTable');
+            
+            database.ref('bookings').on('value', (snapshot) => {
+                const bookings = snapshot.val() || {};
+                
+                if (Object.keys(bookings).length === 0) {
+                    table.innerHTML = '<p>No bookings found</p>';
+                    return;
+                }
+
+                let html = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Time</th>
+                                <th>Name</th>
+                                <th>Phone</th>
+                                <th>Duration</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                ${isAdmin ? '<th>Actions</th>' : ''}
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                Object.entries(bookings)
+                    .sort(([,a], [,b]) => new Date(a.date) - new Date(b.date))
+                    .forEach(([id, booking]) => {
+                        html += `
+                            <tr>
+                                <td>${booking.date}</td>
+                                <td>${booking.time}</td>
+                                <td>${booking.name}</td>
+                                <td>${booking.phone}</td>
+                                <td>${booking.duration} hours</td>
+                                <td>₹${booking.amount}</td>
+                                <td class="status-${booking.status}">${booking.status.toUpperCase()}</td>
+                                ${isAdmin && booking.status === 'pending' ? `
+                                    <td>
+                                        <button class="action-button approve-btn" onclick="approveBooking('${id}')">✓</button>
+                                        <button class="action-button reject-btn" onclick="rejectBooking('${id}')">✗</button>
+                                    </td>
+                                ` : isAdmin ? '<td>-</td>' : ''}
+                            </tr>
+                        `;
+                    });
+
+                html += '</tbody></table>';
+                table.innerHTML = html;
+            });
+        }
+
+        // Load initial data
+        loadBookings();
     </script>
 </body>
 </html>
