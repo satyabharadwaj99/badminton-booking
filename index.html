@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Badminton Court Booking</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .booking-form {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .upi-scanner {
+            text-align: center;
+            padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .upi-scanner img {
+            max-width: 300px;
+            margin: 10px auto;
+            display: block;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background-color: white;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .status-pending {
+            color: #ff9800;
+            font-weight: bold;
+        }
+        .status-approved {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        .status-rejected {
+            color: #f44336;
+            font-weight: bold;
+        }
+        .admin-panel {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        .action-button {
+            padding: 5px 10px;
+            margin: 0 5px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .approve-btn {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .reject-btn {
+            background-color: #f44336;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="booking-form">
+        <h2>Book Badminton Court</h2>
+        <form id="bookingForm">
+            <div class="form-group">
+                <label for="name">Name:</label>
+                <input type="text" id="name" required>
+            </div>
+            <div class="form-group">
+                <label for="phone">Phone:</label>
+                <input type="tel" id="phone" pattern="[0-9]{10}" required>
+            </div>
+            <div class="form-group">
+                <label for="date">Date:</label>
+                <input type="date" id="date" required>
+            </div>
+            <div class="form-group">
+                <label for="time">Time:</label>
+                <input type="time" id="time" required>
+            </div>
+            <div class="form-group">
+                <label for="duration">Duration (hours):</label>
+                <input type="number" id="duration" min="1" max="3" value="1" required>
+            </div>
+            <button type="submit">Book Now</button>
+        </form>
+    </div>
+
+    <div class="upi-scanner">
+        <h3>Pay ₹50 using PhonePe</h3>
+        <img src="phonepe-qr.jpg" alt="PhonePe QR Code">
+        <p>Scan QR code to pay</p>
+    </div>
+
+    <div class="admin-panel">
+        <h2>Admin Controls</h2>
+        <div id="adminLogin">
+            <input type="password" id="adminPassword" placeholder="Enter admin password">
+            <button onclick="loginAdmin()">Login</button>
+        </div>
+    </div>
+
+    <h2>Bookings</h2>
+    <div id="bookingsTable"></div>
+
+    <script>
+        // Initialize variables
+        let bookings = JSON.parse(localStorage.getItem('bookings')) || [];
+        let isAdmin = false;
+        const ADMIN_PASSWORD = 'kojja@123';
+
+        // Set minimum date as today
+        const dateInput = document.getElementById('date');
+        const today = new Date().toISOString().split('T')[0];
+        dateInput.min = today;
+        dateInput.value = today;
+
+        // Handle form submission
+        document.getElementById('bookingForm').onsubmit = function(e) {
+            e.preventDefault();
+            
+            const booking = {
+                name: document.getElementById('name').value,
+                phone: document.getElementById('phone').value,
+                date: document.getElementById('date').value,
+                time: document.getElementById('time').value,
+                duration: document.getElementById('duration').value,
+                amount: 50,
+                status: 'pending'
+            };
+
+            bookings.push(booking);
+            localStorage.setItem('bookings', JSON.stringify(bookings));
+            
+            this.reset();
+            dateInput.value = today;
+            
+            alert('Booking created! Please make the payment.');
+            updateBookingsTable();
+        };
+
+        // Admin login
+        function loginAdmin() {
+            const password = document.getElementById('adminPassword').value;
+            if (password === ADMIN_PASSWORD) {
+                isAdmin = true;
+                alert('Admin login successful');
+                document.getElementById('adminPassword').value = '';
+                updateBookingsTable();
+            } else {
+                alert('Incorrect password');
+            }
+        }
+
+        // Handle booking actions
+        function approveBooking(index) {
+            if (!isAdmin) {
+                alert('Please login as admin first');
+                return;
+            }
+            bookings[index].status = 'approved';
+            localStorage.setItem('bookings', JSON.stringify(bookings));
+            updateBookingsTable();
+        }
+
+        function rejectBooking(index) {
+            if (!isAdmin) {
+                alert('Please login as admin first');
+                return;
+            }
+            bookings[index].status = 'rejected';
+            localStorage.setItem('bookings', JSON.stringify(bookings));
+            updateBookingsTable();
+        }
+
+        // Update bookings table
+        function updateBookingsTable() {
+            const table = document.getElementById('bookingsTable');
+            
+            if (bookings.length === 0) {
+                table.innerHTML = '<p>No bookings found</p>';
+                return;
+            }
+
+            let html = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Time</th>
+                            <th>Name</th>
+                            <th>Phone</th>
+                            <th>Duration</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            ${isAdmin ? '<th>Actions</th>' : ''}
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            bookings.sort((a, b) => new Date(a.date) - new Date(b.date))
+                   .forEach((booking, index) => {
+                html += `
+                    <tr>
+                        <td>${booking.date}</td>
+                        <td>${booking.time}</td>
+                        <td>${booking.name}</td>
+                        <td>${booking.phone}</td>
+                        <td>${booking.duration} hours</td>
+                        <td>₹${booking.amount}</td>
+                        <td class="status-${booking.status}">${booking.status.toUpperCase()}</td>
+                        ${isAdmin && booking.status === 'pending' ? `
+                            <td>
+                                <button class="action-button approve-btn" onclick="approveBooking(${index})">✓</button>
+                                <button class="action-button reject-btn" onclick="rejectBooking(${index})">✗</button>
+                            </td>
+                        ` : isAdmin ? '<td>-</td>' : ''}
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table>';
+            table.innerHTML = html;
+        }
+
+        // Initial table update
+        updateBookingsTable();
+    </script>
+</body>
+</html>
