@@ -110,7 +110,7 @@
 <body>
     <div class="booking-form">
         <h2>Book Badminton Court</h2>
-        <form id="bookingForm" action="https://script.google.com/macros/s/AKfycbwGHKmPtp1IcNwt8kPE9MhZMVWXCQqS8l_2Y9Me4AxvVw9xv4Y4a4YF1_3UvvVy0vQd/exec" method="POST">
+        <form id="bookingForm">
             <div class="form-group">
                 <label for="name">Name:</label>
                 <input type="text" id="name" name="name" required>
@@ -149,9 +149,9 @@
         </div>
     </div>
 
-    <h2>Bookings</h2>
+    <h2>Current Bookings</h2>
     <div id="bookingsTable">
-        <iframe src="https://docs.google.com/spreadsheets/d/e/2PACX-1vQxLZKZv2Kj8LyqPJXMJZpuVzDJKqpqPE6VFyHQzKvZC_Jg3wNvKRKQyDhvUYh_ZYtlQZpqXyQy0YLc/pubhtml?gid=0&amp;single=true&amp;widget=true&amp;headers=false" width="100%" height="500"></iframe>
+        <iframe src="https://docs.google.com/spreadsheets/d/1mTz7z3GWlRPHuURRcBkN6tJbHqHkrROAYtQM2OhBgfA/edit?usp=sharing" style="width:100%; height:500px; border:none;"></iframe>
     </div>
 
     <script>
@@ -164,13 +164,28 @@
         // Handle form submission
         document.getElementById('bookingForm').addEventListener('submit', function(e) {
             e.preventDefault();
-            const formData = new FormData(this);
             
-            fetch(this.action, {
+            // Get form data
+            const formData = {
+                name: document.getElementById('name').value,
+                phone: document.getElementById('phone').value,
+                date: document.getElementById('date').value,
+                time: document.getElementById('time').value,
+                duration: document.getElementById('duration').value,
+                amount: 50,
+                status: 'pending'
+            };
+
+            // Send to Google Sheet
+            fetch('https://script.google.com/macros/s/AKfycbxgQNpKUr6WXTz2G8kHABt8B2B8XB8B2B8XB8B2B8XB8/exec', {
                 method: 'POST',
-                body: formData
+                mode: 'no-cors',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
             })
-            .then(response => {
+            .then(() => {
                 alert('Booking created! Please make the payment.');
                 this.reset();
                 dateInput.value = today;
@@ -178,7 +193,8 @@
                 document.querySelector('iframe').src = document.querySelector('iframe').src;
             })
             .catch(error => {
-                alert('Error creating booking. Please try again.');
+                console.error('Error:', error);
+                alert('Error saving booking. Please try again.');
             });
         });
 
@@ -187,17 +203,17 @@
             const password = document.getElementById('adminPassword').value;
             if (password === 'kojja@123') {
                 alert('Admin login successful');
-                window.open('https://docs.google.com/spreadsheets/d/1X9X9X9X9X9X9X9X9X9X9X9X9X9X9X9X9/edit', '_blank');
+                window.open('https://docs.google.com/spreadsheets/d/1mTz7z3GWlRPHuURRcBkN6tJbHqHkrROAYtQM2OhBgfA/edit', '_blank');
                 document.getElementById('adminPassword').value = '';
             } else {
                 alert('Incorrect password');
             }
         }
 
-        // Refresh iframe every minute
+        // Refresh iframe every 30 seconds
         setInterval(() => {
             document.querySelector('iframe').src = document.querySelector('iframe').src;
-        }, 60000);
+        }, 30000);
     </script>
 </body>
 </html>
