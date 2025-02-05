@@ -3,9 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Book your badminton court online. Easy booking and payment system.">
-    <meta name="keywords" content="badminton, court booking, sports, reservation">
-    <title>Badminton Court Booking System</title>
+    <title>Badminton Court Booking</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -112,26 +110,26 @@
 <body>
     <div class="booking-form">
         <h2>Book Badminton Court</h2>
-        <form id="bookingForm">
+        <form id="bookingForm" action="https://script.google.com/macros/s/AKfycbwGHKmPtp1IcNwt8kPE9MhZMVWXCQqS8l_2Y9Me4AxvVw9xv4Y4a4YF1_3UvvVy0vQd/exec" method="POST">
             <div class="form-group">
                 <label for="name">Name:</label>
-                <input type="text" id="name" required>
+                <input type="text" id="name" name="name" required>
             </div>
             <div class="form-group">
                 <label for="phone">Phone:</label>
-                <input type="tel" id="phone" pattern="[0-9]{10}" required>
+                <input type="tel" id="phone" name="phone" pattern="[0-9]{10}" required>
             </div>
             <div class="form-group">
                 <label for="date">Date:</label>
-                <input type="date" id="date" required>
+                <input type="date" id="date" name="date" required>
             </div>
             <div class="form-group">
                 <label for="time">Time:</label>
-                <input type="time" id="time" required>
+                <input type="time" id="time" name="time" required>
             </div>
             <div class="form-group">
                 <label for="duration">Duration (hours):</label>
-                <input type="number" id="duration" min="1" max="3" value="1" required>
+                <input type="number" id="duration" name="duration" min="1" max="3" value="1" required>
             </div>
             <button type="submit">Book Now</button>
         </form>
@@ -152,178 +150,54 @@
     </div>
 
     <h2>Bookings</h2>
-    <div id="bookingsTable"></div>
+    <div id="bookingsTable">
+        <iframe src="https://docs.google.com/spreadsheets/d/e/2PACX-1vQxLZKZv2Kj8LyqPJXMJZpuVzDJKqpqPE6VFyHQzKvZC_Jg3wNvKRKQyDhvUYh_ZYtlQZpqXyQy0YLc/pubhtml?gid=0&amp;single=true&amp;widget=true&amp;headers=false" width="100%" height="500"></iframe>
+    </div>
 
     <script>
-        const API_URL = 'https://api.npoint.io/3a6b0b8c6c3c9f9b0b8c';
-        let bookings = [];
-        let isAdmin = false;
-        const ADMIN_PASSWORD = 'kojja@123';
-
         // Set minimum date as today
         const dateInput = document.getElementById('date');
         const today = new Date().toISOString().split('T')[0];
         dateInput.min = today;
         dateInput.value = today;
 
-        // Load bookings from API
-        async function loadBookings() {
-            try {
-                const response = await fetch(API_URL);
-                const data = await response.json();
-                bookings = data.bookings || [];
-                console.log('Loaded bookings:', bookings);
-                updateBookingsTable();
-            } catch (error) {
-                console.error('Error loading bookings:', error);
-                bookings = [];
-                updateBookingsTable();
-            }
-        }
-
-        // Save bookings to API
-        async function saveBookings() {
-            try {
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ bookings })
-                });
-                const data = await response.json();
-                console.log('Saved bookings:', data);
-            } catch (error) {
-                console.error('Error saving bookings:', error);
-                alert('Error saving booking. Please try again.');
-            }
-        }
-
         // Handle form submission
-        document.getElementById('bookingForm').onsubmit = async function(e) {
+        document.getElementById('bookingForm').addEventListener('submit', function(e) {
             e.preventDefault();
+            const formData = new FormData(this);
             
-            const booking = {
-                id: Date.now().toString(),
-                name: document.getElementById('name').value,
-                phone: document.getElementById('phone').value,
-                date: document.getElementById('date').value,
-                time: document.getElementById('time').value,
-                duration: document.getElementById('duration').value,
-                amount: 50,
-                status: 'pending',
-                createdAt: new Date().toISOString()
-            };
-
-            bookings.push(booking);
-            await saveBookings();
-            
-            this.reset();
-            dateInput.value = today;
-            
-            alert('Booking created! Please make the payment.');
-            loadBookings(); // Refresh the table
-        };
+            fetch(this.action, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                alert('Booking created! Please make the payment.');
+                this.reset();
+                dateInput.value = today;
+                // Refresh the iframe to show new booking
+                document.querySelector('iframe').src = document.querySelector('iframe').src;
+            })
+            .catch(error => {
+                alert('Error creating booking. Please try again.');
+            });
+        });
 
         // Admin login
         function loginAdmin() {
             const password = document.getElementById('adminPassword').value;
-            if (password === ADMIN_PASSWORD) {
-                isAdmin = true;
+            if (password === 'kojja@123') {
                 alert('Admin login successful');
+                window.open('https://docs.google.com/spreadsheets/d/1X9X9X9X9X9X9X9X9X9X9X9X9X9X9X9X9/edit', '_blank');
                 document.getElementById('adminPassword').value = '';
-                updateBookingsTable();
             } else {
                 alert('Incorrect password');
             }
         }
 
-        // Handle booking actions
-        async function approveBooking(bookingId) {
-            if (!isAdmin) {
-                alert('Please login as admin first');
-                return;
-            }
-            const booking = bookings.find(b => b.id === bookingId);
-            if (booking) {
-                booking.status = 'approved';
-                await saveBookings();
-                loadBookings(); // Refresh the table
-            }
-        }
-
-        async function rejectBooking(bookingId) {
-            if (!isAdmin) {
-                alert('Please login as admin first');
-                return;
-            }
-            const booking = bookings.find(b => b.id === bookingId);
-            if (booking) {
-                booking.status = 'rejected';
-                await saveBookings();
-                loadBookings(); // Refresh the table
-            }
-        }
-
-        // Update bookings table
-        function updateBookingsTable() {
-            const table = document.getElementById('bookingsTable');
-            
-            if (!bookings || bookings.length === 0) {
-                table.innerHTML = '<p>No bookings found</p>';
-                return;
-            }
-
-            let html = `
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <th>Time</th>
-                            <th>Name</th>
-                            <th>Phone</th>
-                            <th>Duration</th>
-                            <th>Amount</th>
-                            <th>Status</th>
-                            ${isAdmin ? '<th>Actions</th>' : ''}
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-
-            bookings.sort((a, b) => new Date(a.date) - new Date(b.date))
-                   .forEach((booking) => {
-                html += `
-                    <tr>
-                        <td>${booking.date}</td>
-                        <td>${booking.time}</td>
-                        <td>${booking.name}</td>
-                        <td>${booking.phone}</td>
-                        <td>${booking.duration} hours</td>
-                        <td>₹${booking.amount}</td>
-                        <td class="status-${booking.status}">${booking.status.toUpperCase()}</td>
-                        ${isAdmin && booking.status === 'pending' ? `
-                            <td>
-                                <button class="action-button approve-btn" onclick="approveBooking('${booking.id}')">✓</button>
-                                <button class="action-button reject-btn" onclick="rejectBooking('${booking.id}')">✗</button>
-                            </td>
-                        ` : isAdmin ? '<td>-</td>' : ''}
-                    </tr>
-                `;
-            });
-
-            html += '</tbody></table>';
-            table.innerHTML = html;
-        }
-
-        // Add auto-refresh every 10 seconds
-        setInterval(loadBookings, 10000);
-
-        // Load initial data
-        loadBookings();
-
-        // Log for debugging
-        console.log('Script loaded and running');
+        // Refresh iframe every minute
+        setInterval(() => {
+            document.querySelector('iframe').src = document.querySelector('iframe').src;
+        }, 60000);
     </script>
 </body>
 </html>
