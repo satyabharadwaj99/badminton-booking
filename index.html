@@ -155,8 +155,9 @@
     <div id="bookingsTable"></div>
 
     <script>
-        // Initialize variables
-        let bookings = JSON.parse(localStorage.getItem('bookings')) || [];
+        const BIN_ID = '65c0e2c4dc74654018894b6b';
+        const API_KEY = '$2a$10$qm/qeEWRyxfK3V2CNAAHXuiCk7tNnJAA0XgHXMQv2yPwFxzxLVL0q';
+        let bookings = [];
         let isAdmin = false;
         const ADMIN_PASSWORD = 'kojja@123';
 
@@ -166,11 +167,47 @@
         dateInput.min = today;
         dateInput.value = today;
 
+        // Load bookings from JSONBin
+        async function loadBookings() {
+            try {
+                const response = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
+                    headers: {
+                        'X-Master-Key': API_KEY
+                    }
+                });
+                const data = await response.json();
+                bookings = data.record.bookings || [];
+                updateBookingsTable();
+            } catch (error) {
+                console.error('Error loading bookings:', error);
+                bookings = [];
+                updateBookingsTable();
+            }
+        }
+
+        // Save bookings to JSONBin
+        async function saveBookings() {
+            try {
+                await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Master-Key': API_KEY
+                    },
+                    body: JSON.stringify({ bookings })
+                });
+            } catch (error) {
+                console.error('Error saving bookings:', error);
+                alert('Error saving booking. Please try again.');
+            }
+        }
+
         // Handle form submission
-        document.getElementById('bookingForm').onsubmit = function(e) {
+        document.getElementById('bookingForm').onsubmit = async function(e) {
             e.preventDefault();
             
             const booking = {
+                id: Date.now().toString(),
                 name: document.getElementById('name').value,
                 phone: document.getElementById('phone').value,
                 date: document.getElementById('date').value,
@@ -181,13 +218,13 @@
             };
 
             bookings.push(booking);
-            localStorage.setItem('bookings', JSON.stringify(bookings));
+            await saveBookings();
             
             this.reset();
             dateInput.value = today;
             
             alert('Booking created! Please make the payment.');
-            updateBookingsTable();
+            loadBookings(); // Refresh the table
         };
 
         // Admin login
@@ -204,31 +241,37 @@
         }
 
         // Handle booking actions
-        function approveBooking(index) {
+        async function approveBooking(bookingId) {
             if (!isAdmin) {
                 alert('Please login as admin first');
                 return;
             }
-            bookings[index].status = 'approved';
-            localStorage.setItem('bookings', JSON.stringify(bookings));
-            updateBookingsTable();
+            const booking = bookings.find(b => b.id === bookingId);
+            if (booking) {
+                booking.status = 'approved';
+                await saveBookings();
+                loadBookings(); // Refresh the table
+            }
         }
 
-        function rejectBooking(index) {
+        async function rejectBooking(bookingId) {
             if (!isAdmin) {
                 alert('Please login as admin first');
                 return;
             }
-            bookings[index].status = 'rejected';
-            localStorage.setItem('bookings', JSON.stringify(bookings));
-            updateBookingsTable();
+            const booking = bookings.find(b => b.id === bookingId);
+            if (booking) {
+                booking.status = 'rejected';
+                await saveBookings();
+                loadBookings(); // Refresh the table
+            }
         }
 
         // Update bookings table
         function updateBookingsTable() {
             const table = document.getElementById('bookingsTable');
             
-            if (bookings.length === 0) {
+            if (!bookings || bookings.length === 0) {
                 table.innerHTML = '<p>No bookings found</p>';
                 return;
             }
@@ -251,7 +294,7 @@
             `;
 
             bookings.sort((a, b) => new Date(a.date) - new Date(b.date))
-                   .forEach((booking, index) => {
+                   .forEach((booking) => {
                 html += `
                     <tr>
                         <td>${booking.date}</td>
@@ -263,8 +306,8 @@
                         <td class="status-${booking.status}">${booking.status.toUpperCase()}</td>
                         ${isAdmin && booking.status === 'pending' ? `
                             <td>
-                                <button class="action-button approve-btn" onclick="approveBooking(${index})">✓</button>
-                                <button class="action-button reject-btn" onclick="rejectBooking(${index})">✗</button>
+                                <button class="action-button approve-btn" onclick="approveBooking('${booking.id}')">✓</button>
+                                <button class="action-button reject-btn" onclick="rejectBooking('${booking.id}')">✗</button>
                             </td>
                         ` : isAdmin ? '<td>-</td>' : ''}
                     </tr>
@@ -275,8 +318,11 @@
             table.innerHTML = html;
         }
 
-        // Initial table update
-        updateBookingsTable();
+        // Add auto-refresh every 30 seconds
+        setInterval(loadBookings, 30000);
+
+        // Load initial data
+        loadBookings();
     </script>
 </body>
 </html>
